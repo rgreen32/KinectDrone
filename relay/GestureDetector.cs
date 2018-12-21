@@ -9,6 +9,7 @@ namespace Microsoft.Samples.Kinect.DiscreteGestureBasics
     using System.Net;
     using System.IO;
     using System;
+    using System.Threading.Tasks;
     using System.Collections.Generic;
     using Microsoft.Kinect;
     using Microsoft.Kinect.VisualGestureBuilder;
@@ -20,13 +21,17 @@ namespace Microsoft.Samples.Kinect.DiscreteGestureBasics
     public class GestureDetector : IDisposable
     {
         /// <summary> Path to the gesture database that was trained with VGB </summary>
-        private readonly string gestureDatabase = @"Database\Activate.gbd";
+        private readonly string gestureDatabase1 = @"Database\Final2_LaunchTrain.gbd";
+        private readonly string gestureDatabase2 = @"Database\ActivateAndLand2.gbd";
 
-        
+
         /// <summary> Name of the discrete gesture in the database that we want to track </summary>
-        private readonly string seatedGestureName = "Activate";
-        private readonly string LandGestureName = "Land";
-
+        private readonly string LaunchGestureName = "Launch_Right";
+        private readonly string LandGestureName = "Land_Left";
+        private readonly string SwipeLeftGestureName = "SwipeLeft_Right";
+        private readonly string SwipeRightGestureName = "SwipeRight_Left";
+        private readonly string LiftGestureName = "Lift";
+        private readonly string LowerGestureName = "Lower";
         /// <summary> Gesture frame source which should be tied to a body tracking ID </summary>
         private VisualGestureBuilderFrameSource vgbFrameSource = null;
 
@@ -49,6 +54,13 @@ namespace Microsoft.Samples.Kinect.DiscreteGestureBasics
             {
                 return reader.ReadToEnd();
             }
+        }
+        async Task PauseAsync(VisualGestureBuilderFrameReader vgb) {
+            vgb.IsPaused = true;
+            Console.WriteLine("Paused");
+            await Task.Delay(5000);
+            vgb.IsPaused = false;
+            Console.WriteLine("Unpaused");
         }
         public GestureDetector(KinectSensor kinectSensor, GestureResultView gestureResultView)
         {
@@ -77,16 +89,35 @@ namespace Microsoft.Samples.Kinect.DiscreteGestureBasics
             }
 
             // load the 'Seated' gesture from the gesture database
-            using (VisualGestureBuilderDatabase database = new VisualGestureBuilderDatabase(this.gestureDatabase))
+            using (VisualGestureBuilderDatabase database = new VisualGestureBuilderDatabase(this.gestureDatabase1))
             {
                 // we could load all available gestures in the database with a call to vgbFrameSource.AddGestures(database.AvailableGestures), 
                 // but for this program, we only want to track one discrete gesture from the database, so we'll load it by name
                 foreach (Gesture gesture in database.AvailableGestures)
                 {
-                    if (gesture.Name.Equals(this.seatedGestureName))
-                    {
+                    this.vgbFrameSource.AddGesture(gesture);
+                    Console.WriteLine(gesture.Name);
+                    //if (gesture.Name.Equals(this.LaunchGestureName) || gesture.Name.Equals(this.LandGestureName))
+                    //{
+                      //  this.vgbFrameSource.AddGesture(gesture);
+                    //}
+                }
+            }
+            using (VisualGestureBuilderDatabase database = new VisualGestureBuilderDatabase(this.gestureDatabase2))
+            {
+                // we could load all available gestures in the database with a call to vgbFrameSource.AddGestures(database.AvailableGestures), 
+                // but for this program, we only want to track one discrete gesture from the database, so we'll load it by name
+                foreach (Gesture gesture in database.AvailableGestures)
+                {
+                    if(gesture.Name == "TakeOff") {
                         this.vgbFrameSource.AddGesture(gesture);
-                    }
+                    }  
+                    
+                    Console.WriteLine(gesture.Name);
+                    //if (gesture.Name.Equals(this.LaunchGestureName) || gesture.Name.Equals(this.LandGestureName))
+                    //{
+                    //  this.vgbFrameSource.AddGesture(gesture);
+                    //}
                 }
             }
         }
@@ -187,7 +218,8 @@ namespace Microsoft.Samples.Kinect.DiscreteGestureBasics
                         // we only have one gesture in this source object, but you can get multiple gestures
                         foreach (Gesture gesture in this.vgbFrameSource.Gestures)
                         {
-                            if (gesture.Name.Equals(this.seatedGestureName) && gesture.GestureType == GestureType.Discrete)
+                            //Console.WriteLine(gesture.Name);
+                            if (gesture.Name.Equals("TakeOff") && gesture.GestureType == GestureType.Discrete)
                             {
                                 DiscreteGestureResult result = null;
                                 discreteResults.TryGetValue(gesture, out result);
@@ -199,17 +231,113 @@ namespace Microsoft.Samples.Kinect.DiscreteGestureBasics
                                     //this.GestureResultView.UpdateGestureResult(true, result.Detected, result.Confidence);
                                     if (result.Detected)
                                     {
-                                     
+                                        Console.WriteLine("Launched");
                                         Console.WriteLine(Get("http://10.2.10.14:5000/"));
                                         Console.WriteLine("Request sent");
-                                        this.vgbFrameReader.IsPaused = true;
-                                        
-                                        //Console.WriteLine(Get("https://www.google.com/"));
+                                        PauseAsync(this.vgbFrameReader);                                                                           
                                     }
-                                    //Console.WriteLine(Get("https://www.google.com/"));
-                                   // Console.WriteLine(gesture.Name+":"+ result.Detected+":" +discreteResults.Count);
+
+                                  
+                                }
+                             }
+                            if (gesture.Name.Equals(this.LandGestureName) && gesture.GestureType == GestureType.Discrete)
+                            {
+                                DiscreteGestureResult result = null;
+                                discreteResults.TryGetValue(gesture, out result);
+
+                                if (result != null)
+                                {
+                                    // update the GestureResultView object with new gesture result values
+
+                                    //this.GestureResultView.UpdateGestureResult(true, result.Detected, result.Confidence);
+                                    if (result.Detected)
+                                    {
+
+                                        Console.WriteLine(Get("http://10.2.10.14:5000/land"));
+                                        Console.WriteLine("Land request sent");
+                                        PauseAsync(this.vgbFrameReader);
+
+                                    }
+             
                                 }
                             }
+                            if (gesture.Name.Equals(this.SwipeLeftGestureName) && gesture.GestureType == GestureType.Discrete)
+                            {
+                                DiscreteGestureResult result = null;
+                                discreteResults.TryGetValue(gesture, out result);
+
+                                if (result != null)
+                                {
+                  
+                                    if (result.Detected) 
+                                    {
+
+                                        Console.WriteLine(Get("http://10.2.10.14:5000/left"));
+                                        Console.WriteLine("Left request sent");
+                                        PauseAsync(this.vgbFrameReader);
+
+                                    }
+
+                                }
+                            }
+                            if (gesture.Name.Equals(this.SwipeRightGestureName) && gesture.GestureType == GestureType.Discrete)
+                            {
+                                DiscreteGestureResult result = null;
+                                discreteResults.TryGetValue(gesture, out result);
+
+                                if (result != null)
+                                {
+
+                                    if (result.Detected)
+                                    {
+
+                                        Console.WriteLine(Get("http://10.2.10.14:5000/right"));
+                                        Console.WriteLine("Right request sent");
+                                        PauseAsync(this.vgbFrameReader);
+
+                                    }
+
+                                }
+                            }
+                            if (gesture.Name.Equals(this.LiftGestureName) && gesture.GestureType == GestureType.Discrete)
+                            {
+                                DiscreteGestureResult result = null;
+                                discreteResults.TryGetValue(gesture, out result);
+
+                                if (result != null)
+                                {
+
+                                    if (result.Detected)
+                                    {
+
+                                        Console.WriteLine(Get("http://10.2.10.14:5000/lift"));
+                                        Console.WriteLine("Lift request sent");
+                                        PauseAsync(this.vgbFrameReader);
+
+                                    }
+
+                                }
+                            }
+                            if (gesture.Name.Equals(this.LowerGestureName) && gesture.GestureType == GestureType.Discrete)
+                            {
+                                DiscreteGestureResult result = null;
+                                discreteResults.TryGetValue(gesture, out result);
+
+                                if (result != null)
+                                {
+
+                                    if (result.Detected)
+                                    {
+
+                                        Console.WriteLine(Get("http://10.2.10.14:5000/lower"));
+                                        Console.WriteLine("Lower request sent");
+                                        PauseAsync(this.vgbFrameReader);
+
+                                    }
+
+                                }
+                            }
+
                         }
                     }
                 }
